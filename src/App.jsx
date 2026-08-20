@@ -355,7 +355,7 @@ export default function App() {
                   {authMode !== 'reset' ? (
                     <input
                       type="password"
-                      placeholder="BCrypt Encrypted Password"
+                      placeholder="Password"
                       value={authPassword}
                       onChange={e => setAuthPassword(e.target.value)}
                       className="input-metronic"
