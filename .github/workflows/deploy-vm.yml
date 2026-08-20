@@ -1,0 +1,53 @@
+name: CD - Deploy Monolith Web App to GCP VM
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+
+jobs:
+  deploy-to-gcp-vm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Determine Environment & Port Mapping
+        id: env-check
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "ENV_NAME=production" >> $GITHUB_OUTPUT
+            echo "PORT_MAPPING=80:8080" >> $GITHUB_OUTPUT
+          else
+            echo "ENV_NAME=staging" >> $GITHUB_OUTPUT
+            echo "PORT_MAPPING=8080:8080" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Docker Image Locally
+        run: |
+          docker build -t gcp-monolith-app:${{ steps.env-check.outputs.ENV_NAME }}-${{ github.sha }} .
+
+      - name: Deploy Container to GCP VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_IP }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            echo "=== Deploying Monolith Web App to GCP VM (Env: ${{ steps.env-check.outputs.ENV_NAME }}) ==="
+            mkdir -p /home/${{ secrets.VM_USER }}/app
+            cd /home/${{ secrets.VM_USER }}/app
+            
+            docker stop gcp-monolith-${{ steps.env-check.outputs.ENV_NAME }} || true
+            docker rm gcp-monolith-${{ steps.env-check.outputs.ENV_NAME }} || true
+            
+            docker run -d \
+              --name gcp-monolith-${{ steps.env-check.outputs.ENV_NAME }} \
+              -p ${{ steps.env-check.outputs.PORT_MAPPING }} \
+              --restart always \
+              nginx:alpine
+            
+            echo "=== Deployment Completed Successfully on GCP VM! ==="
