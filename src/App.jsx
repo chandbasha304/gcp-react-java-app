@@ -18,10 +18,10 @@ export default function App() {
         const data = await res.json();
         setHealth(data);
       } else {
-        setHealth({ status: 'ONLINE (Dev2 Settings API)', uptime: 'Running', environment: 'Staging GCP' });
+        setHealth({ status: 'ONLINE (Mock API)', uptime: 'Running', environment: 'Staging GCP' });
       }
     } catch {
-      setHealth({ status: 'ONLINE (Dev2 Settings Mode)', uptime: 'Active', environment: 'Production GCP VM' });
+      setHealth({ status: 'ONLINE (Client Mode)', uptime: 'Active', environment: 'Production GCP VM' });
     }
   };
 
@@ -54,7 +54,7 @@ export default function App() {
       id: items.length + 1,
       name: newItemName,
       status: 'ACTIVE',
-      category: 'Dev2 Settings Module'
+      category: 'Analytics & Core Service'
     };
     setItems([...items, newItem]);
     setNewItemName('');
@@ -66,15 +66,15 @@ export default function App() {
         <div className="brand">
           <div className="brand-icon">GCP</div>
           <div>
-            <h1>Monolithic Web Portal - Dev2 Settings Edition</h1>
+            <h1>Monolithic Web Portal - Enterprise Analytics Edition</h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Enterprise React + Spring Boot on GCP Compute Engine</p>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button className="btn" style={{ background: 'var(--success)' }}>🔐 Dev1 Login</button>
           <button className="btn btn-secondary">⚙️ Dev2 Settings Modal</button>
           <span className="badge">🚀 Environment: {health.environment}</span>
-        </div>
-      </header>
+        </div>      </header>
 
       <div className="grid">
         <div className="card">
@@ -88,9 +88,9 @@ export default function App() {
         <div className="card">
           <div className="card-title">⚡ Add System Entry</div>
           <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem' }}>
-            <input 
-              type="text" 
-              placeholder="Enter service name..." 
+            <input
+              type="text"
+              placeholder="Enter service name..."
               value={newItemName}
               onChange={(e) => setNewItemName(e.target.value)}
               style={{
