@@ -5,7 +5,6 @@ export default function App() {
   const [health, setHealth] = useState({ status: 'Connecting...', uptime: '0s', environment: 'GCP Monolith' });
   const [items, setItems] = useState([]);
   const [newItemName, setNewItemName] = useState('');
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchHealth();
@@ -55,7 +54,7 @@ export default function App() {
       id: items.length + 1,
       name: newItemName,
       status: 'ACTIVE',
-      category: 'User Input'
+      category: 'Analytics & Core Service'
     };
     setItems([...items, newItem]);
     setNewItemName('');
@@ -67,7 +66,7 @@ export default function App() {
         <div className="brand">
           <div className="brand-icon">GCP</div>
           <div>
-            <h1>Monolithic Web Portal</h1>
+            <h1>Monolithic Web Portal - Enterprise Analytics Edition</h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Enterprise React + Spring Boot on GCP Compute Engine</p>
           </div>
         </div>
@@ -106,7 +105,7 @@ export default function App() {
       </div>
 
       <div className="card">
-        <div className="card-title">📦 Deployed Infrastructure Services</div>
+        <div className="card-title">📊 Enterprise Infrastructure & Analytics Services</div>
         <div className="table-container">
           <table>
             <thead>
