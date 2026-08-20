@@ -70,8 +70,11 @@ export default function App() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Enterprise React + Spring Boot on GCP Compute Engine</p>
           </div>
         </div>
-        <span className="badge">🚀 Environment: {health.environment}</span>
-      </header>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button className="btn" style={{ background: 'var(--success)' }}>🔐 Dev1 Login</button>
+          <button className="btn btn-secondary">⚙️ Dev2 Settings Modal</button>
+          <span className="badge">🚀 Environment: {health.environment}</span>
+        </div>      </header>
 
       <div className="grid">
         <div className="card">
@@ -85,9 +88,9 @@ export default function App() {
         <div className="card">
           <div className="card-title">⚡ Add System Entry</div>
           <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem' }}>
-            <input 
-              type="text" 
-              placeholder="Enter service name..." 
+            <input
+              type="text"
+              placeholder="Enter service name..."
               value={newItemName}
               onChange={(e) => setNewItemName(e.target.value)}
               style={{
@@ -105,7 +108,7 @@ export default function App() {
       </div>
 
       <div className="card">
-        <div className="card-title">📊 Enterprise Infrastructure & Analytics Services</div>
+        <div className="card-title">📦 Deployed Infrastructure Services</div>
         <div className="table-container">
           <table>
             <thead>
