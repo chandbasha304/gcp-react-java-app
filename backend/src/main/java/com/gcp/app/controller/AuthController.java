@@ -20,6 +20,9 @@ public class AuthController {
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
 
+    @org.springframework.beans.factory.annotation.Value("${okta.api.token:00qyLPRc1YZepKM-rPPnPt08-fB1hGNXrF95WK0-Ed}")
+    private String oktaApiToken;
+
     @PostMapping("/register")
     public Map<String, Object> register(@RequestBody Map<String, String> payload) {
         String email = payload.get("email");
@@ -46,7 +49,7 @@ public class AuthController {
 
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "SSWS " + System.getenv().getOrDefault("OKTA_API_TOKEN", "00-demo-token"));
+            headers.set("Authorization", "SSWS " + oktaApiToken);
 
             String[] names = fullName.split(" ", 2);
             String firstName = names[0];
