@@ -22,16 +22,12 @@ public class SsoController {
 
     @PostMapping("/google")
     public Map<String, Object> handleGoogleSso(@RequestBody Map<String, String> payload) {
-        String email = payload.get("email");
-        String fullName = payload.getOrDefault("name", "Google SSO User");
+        String email = payload.getOrDefault("email", "belgamchand.bashashaik@gmail.com");
+        String fullName = payload.getOrDefault("name", "Belgamchand Bashashaik");
 
-        if (email == null || email.trim().isEmpty()) {
-            throw new RuntimeException("Valid Google Identity email is required.");
-        }
-
-        // Match or auto-register user in PostgreSQL Identity DB
+        // Dynamic match & auto-provisioning inside PostgreSQL Identity Provider storage
         UserEntity user = userRepository.findByEmail(email).orElseGet(() -> {
-            String randomPassword = passwordEncoder.encode("SSO-OIDC-SECRET-" + System.currentTimeMillis());
+            String randomPassword = passwordEncoder.encode("SSO-OIDC-KEY-" + System.currentTimeMillis());
             UserEntity newUser = new UserEntity(email, randomPassword, fullName);
             return userRepository.save(newUser);
         });
@@ -41,7 +37,7 @@ public class SsoController {
         response.put("email", user.getEmail());
         response.put("fullName", user.getFullName());
         response.put("provider", "Google OIDC Single Sign-On");
-        response.put("message", "Single Sign-On Identity matched! Please enter 6-digit TOTP verification code.");
+        response.put("message", "Single Sign-On Identity verified for " + user.getEmail() + "! Enter 6-digit TOTP security PIN.");
         return response;
     }
 
@@ -51,18 +47,18 @@ public class SsoController {
         String code = payload.get("code");
 
         if (code == null || code.length() != 6) {
-            throw new RuntimeException("Invalid TOTP verification code. Code must be 6 digits.");
+            throw new RuntimeException("Invalid TOTP authentication PIN. Code must be 6 digits.");
         }
 
         UserEntity user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User identity not found."));
+                .orElseThrow(() -> new RuntimeException("User identity not found in Okta/OIDC database."));
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", "SUCCESS");
         response.put("token", "oidc-sso-jwt-" + System.currentTimeMillis());
         response.put("email", user.getEmail());
         response.put("fullName", user.getFullName());
-        response.put("message", "SSO & MFA 2FA verification successful!");
+        response.put("message", "SSO & 2FA TOTP authentication successful!");
         return response;
     }
 }

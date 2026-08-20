@@ -8,9 +8,9 @@ export default function App() {
 
   // SSO & Auth State
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register' | 'reset'
-  const [authEmail, setAuthEmail] = useState('');
+  const [authEmail, setAuthEmail] = useState('belgamchand.bashashaik@gmail.com');
   const [authPassword, setAuthPassword] = useState('');
-  const [authFullName, setAuthFullName] = useState('');
+  const [authFullName, setAuthFullName] = useState('Belgamchand Bashashaik');
   const [newPassword, setNewPassword] = useState('');
 
   // TOTP MFA Challenge State
@@ -60,27 +60,27 @@ export default function App() {
     }
   };
 
-  // Google SSO OpenID Connect Auth Trigger
+  // Google Single Sign-On OpenID Connect (OIDC / Okta Identity Provider Flow)
   const handleGoogleSso = async () => {
     try {
-      const mockGoogleEmail = authEmail || "user.sso@google.com";
+      const ssoEmail = authEmail || "belgamchand.bashashaik@gmail.com";
       const res = await fetch('/api/auth/sso/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: mockGoogleEmail, name: 'Google SSO User' })
+        body: JSON.stringify({ email: ssoEmail, name: authFullName || 'Belgamchand Bashashaik' })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Google SSO failed');
       
       setPendingSsoUser(data);
       setMfaModal(true);
-      showAlert('Single Sign-On Identity matched! Please enter 6-digit TOTP code.', 'success');
+      showAlert(`SSO Identity matched for ${ssoEmail}! Please enter 6-digit TOTP security code.`, 'success');
     } catch (err) {
       showAlert(err.message, 'error');
     }
   };
 
-  // Verify TOTP MFA 6-Digit Pin Code
+  // Verify TOTP 2FA Security Code
   const handleVerifyTotpMfa = async (e) => {
     e.preventDefault();
     try {
@@ -113,7 +113,7 @@ export default function App() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Registration failed');
-        showAlert('User registered in Identity DB! You can now log in.', 'success');
+        showAlert('User identity registered in PostgreSQL DB! Log in now.', 'success');
         setAuthMode('login');
       } else if (authMode === 'login') {
         const res = await fetch('/api/auth/login', {
@@ -214,7 +214,7 @@ export default function App() {
 
         <nav className="nav-menu">
           <div className="nav-item active">📊 Dashboard</div>
-          <div className="nav-item">🔐 SSO & Security</div>
+          <div className="nav-item">🔐 OIDC & SSO Provider</div>
           <div className="nav-item">🐘 PostgreSQL DB</div>
           <div className="nav-item">⚙️ Settings</div>
         </nav>
@@ -226,14 +226,14 @@ export default function App() {
         <header className="metronic-header">
           <div>
             <h2 style={{ fontSize: '1.4rem' }}>Enterprise Monolithic Dashboard</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>OIDC Single Sign-On + 2FA TOTP + PostgreSQL</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>OIDC Single Sign-On (Google/Okta) + 2FA TOTP + PostgreSQL</p>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <span className="status-pill primary">🚀 {health.environment}</span>
             {user ? (
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span className="status-pill success">👤 {user.fullName}</span>
+                <span className="status-pill success">👤 {user.fullName} ({user.email})</span>
                 <button className="btn-metronic" style={{ background: 'var(--metronic-card-hover)', padding: '0.5rem 1rem' }} onClick={() => setUser(null)}>Logout</button>
               </div>
             ) : (
@@ -247,7 +247,7 @@ export default function App() {
           <div className="metronic-card">
             <h3 style={{ marginBottom: '0.5rem' }}>🔐 Enterprise Identity & Access Management</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-              Select single sign-on or enter your credentials to authenticate into the system.
+              Authenticate dynamically via Google OpenID Connect (OIDC / Okta) or BCrypt email identity.
             </p>
 
             {/* Google Single Sign-On (SSO) OIDC Trigger */}
@@ -265,7 +265,7 @@ export default function App() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1rem 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
               <div style={{ flex: 1, height: '1px', background: 'var(--metronic-border)' }}></div>
-              <span>OR USE EMAIL IDENTITY</span>
+              <span>OR USE DYNAMIC EMAIL IDENTITY</span>
               <div style={{ flex: 1, height: '1px', background: 'var(--metronic-border)' }}></div>
             </div>
 
