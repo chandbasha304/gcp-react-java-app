@@ -15,13 +15,16 @@ COPY backend/pom.xml ./
 COPY backend/src ./src
 RUN mvn clean package -DskipTests
 
-# Stage 3: Runtime image
+# Stage 3: Runtime image (Serves React UI + Spring Boot API)
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
+
+# Copy React built dist to Spring Boot static resources folder inside the JAR/app
+COPY --from=build-frontend /app/frontend/dist /app/static
 
 # Copy built jar from backend build
 COPY --from=build-backend /app/backend/target/*.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Dspring.web.resources.static-locations=file:/app/static/", "-jar", "app.jar"]
