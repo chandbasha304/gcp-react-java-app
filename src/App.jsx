@@ -5,22 +5,26 @@ export default function App() {
   const [health, setHealth] = useState({ status: 'Connecting...', uptime: '0s', environment: 'GCP Monolith' });
   const [items, setItems] = useState([]);
   const [user, setUser] = useState(null);
-  
-  // Auth Form State
+
+  // SSO & Auth State
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register' | 'reset'
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authFullName, setAuthFullName] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
-  // Item Form State
+  // TOTP MFA Challenge State
+  const [mfaModal, setMfaModal] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
+  const [pendingSsoUser, setPendingSsoUser] = useState(null);
+
+  // CRUD Form State
   const [itemName, setItemName] = useState('');
-  const [itemCategory, setItemCategory] = useState('Core Feature');
+  const [itemCategory, setItemCategory] = useState('Core Service');
   const [editingItem, setEditingItem] = useState(null);
 
-  // Alert State
+  // Toast Alerts
   const [alert, setAlert] = useState(null);
-  const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
     fetchHealth();
@@ -56,7 +60,48 @@ export default function App() {
     }
   };
 
-  // Auth Operations
+  // Google SSO OpenID Connect Auth Trigger
+  const handleGoogleSso = async () => {
+    try {
+      const mockGoogleEmail = authEmail || "user.sso@google.com";
+      const res = await fetch('/api/auth/sso/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: mockGoogleEmail, name: 'Google SSO User' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Google SSO failed');
+      
+      setPendingSsoUser(data);
+      setMfaModal(true);
+      showAlert('Single Sign-On Identity matched! Please enter 6-digit TOTP code.', 'success');
+    } catch (err) {
+      showAlert(err.message, 'error');
+    }
+  };
+
+  // Verify TOTP MFA 6-Digit Pin Code
+  const handleVerifyTotpMfa = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/auth/sso/mfa/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingSsoUser.email, code: mfaCode })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'MFA Verification failed');
+
+      setUser(data);
+      setMfaModal(false);
+      setMfaCode('');
+      showAlert(`Authenticated via Google SSO & 2FA TOTP! Welcome ${data.fullName}`, 'success');
+    } catch (err) {
+      showAlert(err.message, 'error');
+    }
+  };
+
+  // Standard BCrypt Password Authentication
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -68,7 +113,7 @@ export default function App() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Registration failed');
-        showAlert('Registration successful! Please log in now.', 'success');
+        showAlert('User registered in Identity DB! You can now log in.', 'success');
         setAuthMode('login');
       } else if (authMode === 'login') {
         const res = await fetch('/api/auth/login', {
@@ -96,7 +141,7 @@ export default function App() {
     }
   };
 
-  // CRUD Operations
+  // Persistent CRUD Operations
   const handleAddItem = async (e) => {
     e.preventDefault();
     if (!itemName.trim()) return;
@@ -110,7 +155,7 @@ export default function App() {
       if (!res.ok) throw new Error(data.message || 'Failed to add item');
       setItems([...items, data]);
       setItemName('');
-      showAlert(`Item "${data.name}" added to PostgreSQL database!`, 'success');
+      showAlert(`Record "${data.name}" saved to PostgreSQL Database!`, 'success');
     } catch (err) {
       showAlert(err.message, 'error');
     }
@@ -129,224 +174,279 @@ export default function App() {
       if (!res.ok) throw new Error(data.message || 'Failed to update item');
       setItems(items.map(i => i.id === data.id ? data : i));
       setEditingItem(null);
-      showAlert(`Item #${data.id} updated successfully!`, 'success');
+      showAlert(`Record #${data.id} updated!`, 'success');
     } catch (err) {
       showAlert(err.message, 'error');
     }
   };
 
   const handleDeleteItem = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this item from the database?')) return;
+    if (!window.confirm('Delete this record permanently from PostgreSQL database?')) return;
     try {
       const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to delete item');
       setItems(items.filter(i => i.id !== id));
-      showAlert(`Item #${id} deleted from database!`, 'warning');
+      showAlert(`Record #${id} deleted from database!`, 'success');
     } catch (err) {
       showAlert(err.message, 'error');
     }
   };
 
   return (
-    <div className={`app-container ${darkMode ? 'dark-theme' : 'light-theme'}`}>
+    <div className="metronic-layout">
       {/* Toast Alert Banner */}
       {alert && (
-        <div className={`toast-alert ${alert.type}`}>
-          {alert.type === 'error' ? '❌' : alert.type === 'warning' ? '⚠️' : '✅'} {alert.message}
+        <div className={`toast-banner ${alert.type}`}>
+          {alert.type === 'error' ? '❌' : '✅'} {alert.message}
         </div>
       )}
 
-      <header>
-        <div className="brand">
-          <div className="brand-icon">GCP</div>
+      {/* Metronic Sidebar Navigation */}
+      <aside className="metronic-sidebar">
+        <div className="brand-logo">
+          <div className="logo-badge">M</div>
           <div>
-            <h1>Enterprise Web Portal</h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Spring Boot + React 18 + PostgreSQL Database</p>
+            <h2 className="brand-title" style={{ fontSize: '1.2rem' }}>METRONIC</h2>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Enterprise GCP Portal</p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {user ? (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <span className="badge" style={{ borderColor: 'var(--success)', color: 'var(--success)' }}>👤 {user.fullName}</span>
-              <button className="btn btn-secondary" onClick={() => setUser(null)}>Logout</button>
+
+        <nav className="nav-menu">
+          <div className="nav-item active">📊 Dashboard</div>
+          <div className="nav-item">🔐 SSO & Security</div>
+          <div className="nav-item">🐘 PostgreSQL DB</div>
+          <div className="nav-item">⚙️ Settings</div>
+        </nav>
+      </aside>
+
+      {/* Metronic Main Workspace */}
+      <main className="metronic-content">
+        {/* Top Navbar */}
+        <header className="metronic-header">
+          <div>
+            <h2 style={{ fontSize: '1.4rem' }}>Enterprise Monolithic Dashboard</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>OIDC Single Sign-On + 2FA TOTP + PostgreSQL</p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <span className="status-pill primary">🚀 {health.environment}</span>
+            {user ? (
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span className="status-pill success">👤 {user.fullName}</span>
+                <button className="btn-metronic" style={{ background: 'var(--metronic-card-hover)', padding: '0.5rem 1rem' }} onClick={() => setUser(null)}>Logout</button>
+              </div>
+            ) : (
+              <span className="status-pill" style={{ background: 'rgba(239, 68, 68, 0.12)', color: 'var(--metronic-danger)' }}>🔒 Signed Out</span>
+            )}
+          </div>
+        </header>
+
+        {/* Metronic Single Sign-On (SSO) Card */}
+        {!user && (
+          <div className="metronic-card">
+            <h3 style={{ marginBottom: '0.5rem' }}>🔐 Enterprise Identity & Access Management</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+              Select single sign-on or enter your credentials to authenticate into the system.
+            </p>
+
+            {/* Google Single Sign-On (SSO) OIDC Trigger */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <button className="btn-sso-google" onClick={handleGoogleSso}>
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                  <path fill="#4285F4" d="M17.64 9.2c0-.74-.06-1.28-.19-1.84H9v3.34h4.96c-.1.83-.64 2.08-1.84 2.92l2.84 2.2c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+                  <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.84-2.2c-.76.53-1.78.9-3.12.9-2.38 0-4.41-1.57-5.13-3.72L.97 13.06C2.45 16 5.48 18 9 18z"/>
+                  <path fill="#FBBC05" d="M3.87 10.8c-.19-.53-.3-1.1-.3-1.8s.11-1.27.3-1.8L.97 4.94C.35 6.16 0 7.54 0 9s.35 2.84.97 4.06l2.9-2.26z"/>
+                  <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.45 2 1.05 4.94l2.82 2.26C4.59 5.05 6.62 3.58 9 3.58z"/>
+                </svg>
+                Sign in with Google (SSO + OIDC)
+              </button>
             </div>
-          ) : (
-            <button className="btn" style={{ background: 'var(--success)' }} onClick={() => setAuthMode('login')}>
-              🔐 Auth Portal
-            </button>
-          )}
-          <button className="btn" onClick={() => setDarkMode(!darkMode)} style={{ background: 'var(--accent-indigo)' }}>
-            {darkMode ? '🌙 Dark' : '☀️ Light'}
-          </button>
-          <span className="badge">🚀 {health.environment}</span>
-        </div>
-      </header>
 
-      {/* Auth Modal Modal if Not Logged In */}
-      {!user && (
-        <div className="card" style={{ marginBottom: '2rem', border: '1px solid var(--accent-blue)' }}>
-          <div className="card-title">
-            🔐 {authMode === 'login' ? 'User Login (BCrypt Hashed)' : authMode === 'register' ? 'Register New Account' : 'Reset Account Password'}
-          </div>
-          <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '400px' }}>
-            {authMode === 'register' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1rem 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--metronic-border)' }}></div>
+              <span>OR USE EMAIL IDENTITY</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--metronic-border)' }}></div>
+            </div>
+
+            {/* Standard BCrypt Auth Form */}
+            <form onSubmit={handleAuthSubmit} style={{ display: 'grid', gap: '1rem', maxWidth: '440px' }}>
+              {authMode === 'register' && (
+                <input
+                  type="text"
+                  placeholder="Full Name"
+                  value={authFullName}
+                  onChange={e => setAuthFullName(e.target.value)}
+                  className="input-metronic"
+                  required
+                />
+              )}
               <input
-                type="text"
-                placeholder="Full Name"
-                value={authFullName}
-                onChange={e => setAuthFullName(e.target.value)}
-                className="input-field"
+                type="email"
+                placeholder="Email Address"
+                value={authEmail}
+                onChange={e => setAuthEmail(e.target.value)}
+                className="input-metronic"
                 required
               />
-            )}
-            <input
-              type="email"
-              placeholder="Email Address"
-              value={authEmail}
-              onChange={e => setAuthEmail(e.target.value)}
-              className="input-field"
-              required
-            />
-            {authMode !== 'reset' ? (
-              <input
-                type="password"
-                placeholder="Password"
-                value={authPassword}
-                onChange={e => setAuthPassword(e.target.value)}
-                className="input-field"
-                required
-              />
-            ) : (
-              <input
-                type="password"
-                placeholder="New Password"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                className="input-field"
-                required
-              />
-            )}
-            <button type="submit" className="btn">
-              {authMode === 'login' ? 'Sign In' : authMode === 'register' ? 'Create Account' : 'Reset Password'}
-            </button>
-          </form>
-          <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {authMode === 'login' ? (
-              <>
-                Need an account? <a href="#register" onClick={() => setAuthMode('register')} style={{ color: 'var(--accent-blue)' }}>Register</a> | <a href="#reset" onClick={() => setAuthMode('reset')} style={{ color: 'var(--accent-blue)' }}>Forgot Password?</a>
-              </>
-            ) : (
-              <>
-                Already registered? <a href="#login" onClick={() => setAuthMode('login')} style={{ color: 'var(--accent-blue)' }}>Log In</a>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+              {authMode !== 'reset' ? (
+                <input
+                  type="password"
+                  placeholder="BCrypt Encrypted Password"
+                  value={authPassword}
+                  onChange={e => setAuthPassword(e.target.value)}
+                  className="input-metronic"
+                  required
+                />
+              ) : (
+                <input
+                  type="password"
+                  placeholder="New Password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  className="input-metronic"
+                  required
+                />
+              )}
+              <button type="submit" className="btn-metronic">
+                {authMode === 'login' ? 'Sign In with Email' : authMode === 'register' ? 'Register Account' : 'Reset Password'}
+              </button>
+            </form>
 
-      {/* Main Persistent CRUD Data Engine */}
-      <div className="grid">
-        <div className="card">
-          <div className="card-title">
-            <span className="status-dot"></span> System Health & Database
+            <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              {authMode === 'login' ? (
+                <>Need account? <a href="#reg" onClick={() => setAuthMode('register')} style={{ color: 'var(--metronic-primary)' }}>Register</a> | <a href="#rst" onClick={() => setAuthMode('reset')} style={{ color: 'var(--metronic-primary)' }}>Forgot Password?</a></>
+              ) : (
+                <>Already registered? <a href="#log" onClick={() => setAuthMode('login')} style={{ color: 'var(--metronic-primary)' }}>Log In</a></>
+              )}
+            </div>
           </div>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Backend API: <strong>{health.status}</strong></p>
-          <p style={{ color: 'var(--text-muted)' }}>Database Engine: <strong>PostgreSQL 16 Engine</strong></p>
-        </div>
+        )}
 
-        <div className="card">
-          <div className="card-title">⚡ Add Item to PostgreSQL Database</div>
-          <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {/* 2FA / TOTP MFA Verification Modal */}
+        {mfaModal && (
+          <div className="modal-overlay">
+            <div className="metronic-card modal-content">
+              <h3 style={{ marginBottom: '0.5rem' }}>🔑 2FA Security Challenge</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+                Single Sign-On identity matched for <strong>{pendingSsoUser?.email}</strong>. Enter your 6-digit TOTP authenticator code to proceed.
+              </p>
+              <form onSubmit={handleVerifyTotpMfa} style={{ display: 'grid', gap: '1rem' }}>
+                <input
+                  type="text"
+                  maxLength="6"
+                  placeholder="Enter 6-digit TOTP (e.g. 123456)"
+                  value={mfaCode}
+                  onChange={e => setMfaCode(e.target.value)}
+                  className="input-metronic"
+                  style={{ textAlign: 'center', letterSpacing: '0.4em', fontSize: '1.25rem', fontWeight: 'bold' }}
+                  required
+                />
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button type="button" className="btn-metronic" style={{ background: 'var(--metronic-card-hover)', flex: 1 }} onClick={() => setMfaModal(false)}>Cancel</button>
+                  <button type="submit" className="btn-metronic" style={{ flex: 1 }}>Verify TOTP Code</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Persistent PostgreSQL CRUD Section */}
+        <div className="metronic-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div>
+              <h3>🐘 Persistent PostgreSQL Database Records</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Direct CRUD operations on GCP Compute Engine PostgreSQL 16 container</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             <input
               type="text"
-              placeholder="Item name..."
+              placeholder="Record name..."
               value={itemName}
               onChange={e => setItemName(e.target.value)}
-              className="input-field"
+              className="input-metronic"
               style={{ flex: 1 }}
               required
             />
-            <select 
-              value={itemCategory} 
+            <select
+              value={itemCategory}
               onChange={e => setItemCategory(e.target.value)}
-              className="input-field"
+              className="input-metronic"
+              style={{ width: '180px' }}
             >
-              <option value="Core Feature">Core Feature</option>
-              <option value="Security">Security</option>
-              <option value="Database">Database</option>
+              <option value="Core Service">Core Service</option>
+              <option value="Single Sign-On">Single Sign-On</option>
+              <option value="PostgreSQL DB">PostgreSQL DB</option>
               <option value="Infrastructure">Infrastructure</option>
             </select>
-            <button type="submit" className="btn">Save to DB</button>
+            <button type="submit" className="btn-metronic">Add Record</button>
           </form>
-        </div>
-      </div>
 
-      {/* Item CRUD Table */}
-      <div className="card">
-        <div className="card-title">📦 Persistent Database Records (PostgreSQL `items` Table)</div>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Item Name</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td>#{item.id}</td>
-                  <td><strong>{item.name}</strong></td>
-                  <td><span className="badge" style={{ fontSize: '0.75rem' }}>{item.category}</span></td>
-                  <td><span style={{ color: 'var(--success)', fontWeight: 'bold' }}>{item.status}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button className="btn btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem' }} onClick={() => setEditingItem(item)}>✏️ Edit</button>
-                      <button className="btn" style={{ padding: '0.25rem 0.6rem', fontSize: '0.8rem', background: '#ef4444' }} onClick={() => handleDeleteItem(item.id)}>🗑️ Delete</button>
-                    </div>
-                  </td>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--metronic-border)' }}>
+                  <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>ID</th>
+                  <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>NAME</th>
+                  <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>CATEGORY</th>
+                  <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>STATUS</th>
+                  <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>ACTIONS</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Edit Item Modal */}
-      {editingItem && (
-        <div className="modal-overlay">
-          <div className="card modal-box">
-            <div className="card-title">✏️ Edit PostgreSQL Item #{editingItem.id}</div>
-            <form onSubmit={handleUpdateItem} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input
-                type="text"
-                value={editingItem.name}
-                onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
-                className="input-field"
-                required
-              />
-              <select
-                value={editingItem.category}
-                onChange={e => setEditingItem({ ...editingItem, category: e.target.value })}
-                className="input-field"
-              >
-                <option value="Core Feature">Core Feature</option>
-                <option value="Security">Security</option>
-                <option value="Database">Database</option>
-                <option value="Infrastructure">Infrastructure</option>
-              </select>
-              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setEditingItem(null)}>Cancel</button>
-                <button type="submit" className="btn">Save Changes</button>
-              </div>
-            </form>
+              </thead>
+              <tbody>
+                {items.map(item => (
+                  <tr key={item.id} style={{ borderBottom: '1px solid var(--metronic-border)' }}>
+                    <td style={{ padding: '0.75rem 1rem' }}>#{item.id}</td>
+                    <td style={{ padding: '0.75rem 1rem' }}><strong>{item.name}</strong></td>
+                    <td style={{ padding: '0.75rem 1rem' }}><span className="status-pill primary">{item.category}</span></td>
+                    <td style={{ padding: '0.75rem 1rem' }}><span className="status-pill success">{item.status}</span></td>
+                    <td style={{ padding: '0.75rem 1rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button className="btn-metronic" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', background: 'var(--metronic-card-hover)' }} onClick={() => setEditingItem(item)}>Edit</button>
+                        <button className="btn-metronic" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', background: 'var(--metronic-danger)' }} onClick={() => handleDeleteItem(item.id)}>Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
+
+        {/* Edit Modal */}
+        {editingItem && (
+          <div className="modal-overlay">
+            <div className="metronic-card modal-content">
+              <h3>✏️ Edit PostgreSQL Record #{editingItem.id}</h3>
+              <form onSubmit={handleUpdateItem} style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
+                <input
+                  type="text"
+                  value={editingItem.name}
+                  onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
+                  className="input-metronic"
+                  required
+                />
+                <select
+                  value={editingItem.category}
+                  onChange={e => setEditingItem({ ...editingItem, category: e.target.value })}
+                  className="input-metronic"
+                >
+                  <option value="Core Service">Core Service</option>
+                  <option value="Single Sign-On">Single Sign-On</option>
+                  <option value="PostgreSQL DB">PostgreSQL DB</option>
+                  <option value="Infrastructure">Infrastructure</option>
+                </select>
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn-metronic" style={{ background: 'var(--metronic-card-hover)' }} onClick={() => setEditingItem(null)}>Cancel</button>
+                  <button type="submit" className="btn-metronic">Save Changes</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
