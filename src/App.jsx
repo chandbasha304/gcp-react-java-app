@@ -54,7 +54,7 @@ export default function App() {
       id: items.length + 1,
       name: newItemName,
       status: 'ACTIVE',
-      category: 'Analytics Module'
+      category: 'Analytics & Core Service'
     };
     setItems([...items, newItem]);
     setNewItemName('');
@@ -66,7 +66,7 @@ export default function App() {
         <div className="brand">
           <div className="brand-icon">GCP</div>
           <div>
-            <h1>Monolithic Web Portal - Analytics Edition v1.2</h1>
+            <h1>Monolithic Web Portal - Enterprise Analytics Edition</h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Enterprise React + Spring Boot on GCP Compute Engine</p>
           </div>
         </div>
@@ -83,11 +83,11 @@ export default function App() {
         </div>
 
         <div className="card">
-          <div className="card-title">⚡ Add Analytics Service</div>
+          <div className="card-title">⚡ Add System Entry</div>
           <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '0.5rem' }}>
             <input 
               type="text" 
-              placeholder="Enter analytics metrics..." 
+              placeholder="Enter service name..." 
               value={newItemName}
               onChange={(e) => setNewItemName(e.target.value)}
               style={{
@@ -105,7 +105,7 @@ export default function App() {
       </div>
 
       <div className="card">
-        <div className="card-title">📊 Real-Time Analytics Infrastructure</div>
+        <div className="card-title">📊 Enterprise Infrastructure & Analytics Services</div>
         <div className="table-container">
           <table>
             <thead>
