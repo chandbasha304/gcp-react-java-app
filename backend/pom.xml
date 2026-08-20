@@ -8,7 +8,7 @@
     <artifactId>gcp-monolith-app</artifactId>
     <version>1.0.0</version>
     <name>gcp-monolith-app</name>
-    <description>Enterprise Spring Boot Monolith with BCrypt Auth & JPA PostgreSQL Persistence</description>
+    <description>Enterprise Spring Boot Monolith with BCrypt Auth and JPA PostgreSQL Persistence</description>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
