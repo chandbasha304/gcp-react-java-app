@@ -29,6 +29,29 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+  position: relative;
+}
+
+.toast-alert {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  padding: 0.85rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  animation: slideIn 0.3s ease-out;
+}
+
+.toast-alert.success { background-color: #059669; }
+.toast-alert.error { background-color: #dc2626; }
+.toast-alert.warning { background-color: #d97706; }
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 header {
@@ -106,6 +129,19 @@ header {
   box-shadow: 0 0 8px var(--success);
 }
 
+.input-field {
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-main);
+  outline: none;
+}
+
+.input-field:focus {
+  border-color: var(--accent-blue);
+}
+
 .btn {
   background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
   color: white;
@@ -155,4 +191,23 @@ th {
 
 tr:hover {
   background-color: var(--bg-card-hover);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 480px;
+  border-color: var(--accent-blue);
 }

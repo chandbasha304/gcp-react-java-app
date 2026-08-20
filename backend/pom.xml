@@ -8,7 +8,7 @@
     <artifactId>gcp-monolith-app</artifactId>
     <version>1.0.0</version>
     <name>gcp-monolith-app</name>
-    <description>Fresh Spring Boot Monolithic REST API Backend</description>
+    <description>Enterprise Spring Boot Monolith with BCrypt Auth & JPA PostgreSQL Persistence</description>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -25,6 +25,22 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
