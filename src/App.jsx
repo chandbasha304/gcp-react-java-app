@@ -309,8 +309,12 @@ export default function App() {
                   <strong>Flow Step 1:</strong> Register a new user in the Identity Provider DB, then sign in with Google (SSO) & 2FA TOTP!
                 </p>
 
-                {/* Google Single Sign-On (SSO) OIDC Trigger */}
-                <div style={{ marginBottom: '1.5rem' }}>
+                {/* Okta & Google Single Sign-On (SSO) Triggers */}
+                <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                  <a href="/oauth2/authorization/okta" className="btn-metronic" style={{ textDecoration: 'none', background: '#00297A' }}>
+                    🛡️ Sign in with Okta SSO (OpenID Connect)
+                  </a>
+
                   <button className="btn-sso-google" onClick={handleGoogleSso}>
                     <svg width="18" height="18" viewBox="0 0 18 18">
                       <path fill="#4285F4" d="M17.64 9.2c0-.74-.06-1.28-.19-1.84H9v3.34h4.96c-.1.83-.64 2.08-1.84 2.92l2.84 2.2c1.7-1.57 2.68-3.88 2.68-6.62z"/>
