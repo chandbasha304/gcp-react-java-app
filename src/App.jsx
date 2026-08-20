@@ -5,6 +5,7 @@ export default function App() {
   const [health, setHealth] = useState({ status: 'Connecting...', uptime: '0s', environment: 'GCP Monolith' });
   const [items, setItems] = useState([]);
   const [newItemName, setNewItemName] = useState('');
+  const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
     fetchHealth();
@@ -61,7 +62,7 @@ export default function App() {
   };
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${darkMode ? 'dark-theme' : 'light-theme'}`}>
       <header>
         <div className="brand">
           <div className="brand-icon">GCP</div>
@@ -73,8 +74,12 @@ export default function App() {
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button className="btn" style={{ background: 'var(--success)' }}>🔐 Dev1 Login</button>
           <button className="btn btn-secondary">⚙️ Dev2 Settings Modal</button>
+          <button className="btn" onClick={() => setDarkMode(!darkMode)} style={{ background: 'var(--accent-indigo)' }}>
+            {darkMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
+          </button>
           <span className="badge">🚀 Environment: {health.environment}</span>
-        </div>      </header>
+        </div>
+      </header>
 
       <div className="grid">
         <div className="card">
