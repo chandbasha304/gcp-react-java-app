@@ -18,10 +18,10 @@ export default function App() {
         const data = await res.json();
         setHealth(data);
       } else {
-        setHealth({ status: 'ONLINE (Mock API)', uptime: 'Running', environment: 'Staging GCP' });
+        setHealth({ status: 'ONLINE (Dev1 Auth API)', uptime: '99.9%', environment: 'Staging GCP' });
       }
     } catch {
-      setHealth({ status: 'ONLINE (Client Mode)', uptime: 'Active', environment: 'Production GCP VM' });
+      setHealth({ status: 'ONLINE (Dev1 Auth Mode)', uptime: 'Active', environment: 'Production GCP VM' });
     }
   };
 
@@ -54,7 +54,7 @@ export default function App() {
       id: items.length + 1,
       name: newItemName,
       status: 'ACTIVE',
-      category: 'Analytics & Core Service'
+      category: 'Dev1 Auth Module'
     };
     setItems([...items, newItem]);
     setNewItemName('');
@@ -66,11 +66,14 @@ export default function App() {
         <div className="brand">
           <div className="brand-icon">GCP</div>
           <div>
-            <h1>Monolithic Web Portal - Enterprise Analytics Edition</h1>
+            <h1>Monolithic Web Portal - Dev1 Auth System v2.0</h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Enterprise React + Spring Boot on GCP Compute Engine</p>
           </div>
         </div>
-        <span className="badge">🚀 Environment: {health.environment}</span>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button className="btn" style={{ background: 'var(--success)' }}>🔐 Dev1 Login</button>
+          <span className="badge">🚀 Environment: {health.environment}</span>
+        </div>
       </header>
 
       <div className="grid">
@@ -105,7 +108,7 @@ export default function App() {
       </div>
 
       <div className="card">
-        <div className="card-title">📊 Enterprise Infrastructure & Analytics Services</div>
+        <div className="card-title">📦 Deployed Infrastructure Services</div>
         <div className="table-container">
           <table>
             <thead>
