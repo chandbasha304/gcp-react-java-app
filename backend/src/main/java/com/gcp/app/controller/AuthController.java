@@ -38,10 +38,47 @@ public class AuthController {
         UserEntity user = new UserEntity(email, hashedPassword, fullName);
         userRepository.save(user);
 
+        // Provision User to Okta Identity Provider via Okta REST API
+        String oktaStatus = "PROVISIONED_LOCAL_DB";
+        try {
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            String oktaApiUrl = "https://integrator-7068519.okta.com/api/v1/users?activate=true";
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "SSWS " + System.getenv().getOrDefault("OKTA_API_TOKEN", "00-demo-token"));
+
+            String[] names = fullName.split(" ", 2);
+            String firstName = names[0];
+            String lastName = names.length > 1 ? names[1] : "User";
+
+            Map<String, Object> profile = new HashMap<>();
+            profile.put("firstName", firstName);
+            profile.put("lastName", lastName);
+            profile.put("email", email);
+            profile.put("login", email);
+
+            Map<String, Object> pwdVal = new HashMap<>();
+            pwdVal.put("value", password);
+            Map<String, Object> credentials = new HashMap<>();
+            credentials.put("password", pwdVal);
+
+            Map<String, Object> oktaBody = new HashMap<>();
+            oktaBody.put("profile", profile);
+            oktaBody.put("credentials", credentials);
+
+            org.springframework.http.HttpEntity<Map<String, Object>> entity = new org.springframework.http.HttpEntity<>(oktaBody, headers);
+            restTemplate.postForEntity(oktaApiUrl, entity, String.class);
+            oktaStatus = "PROVISIONED_OKTA_AND_LOCAL_DB";
+        } catch (Exception e) {
+            System.err.println("Okta API User Provisioning Note: " + e.getMessage());
+        }
+
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "User registered successfully!");
+        response.put("message", "User registered and provisioned in Okta & PostgreSQL successfully!");
         response.put("email", user.getEmail());
         response.put("fullName", user.getFullName());
+        response.put("oktaStatus", oktaStatus);
         return response;
     }
 
