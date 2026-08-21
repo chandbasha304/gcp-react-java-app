@@ -10,7 +10,7 @@ export default function App() {
 
   // SSO & Auth State
   const [authMode, setAuthMode] = useState('register'); // 'register' | 'login' | 'reset'
-  const [authEmail, setAuthEmail] = useState('belgamchand.bashashaik@gmail.com');
+  const [authEmail, setAuthEmail] = useState('belgamchand.bashashaik@sailssoftware.com');
   const [authPassword, setAuthPassword] = useState('');
   const [authFullName, setAuthFullName] = useState('Belgamchand Bashashaik');
   const [newPassword, setNewPassword] = useState('');
@@ -32,20 +32,50 @@ export default function App() {
     fetchHealth();
     fetchItems();
     fetchIdpUsers();
+    checkOidcSession();
   }, []);
+
+  const checkOidcSession = async () => {
+    try {
+      const data = await handleApiRequest('/api/auth/me');
+      if (data.authenticated) {
+        setUser(data);
+        showAlert(`Authenticated via ${data.provider}! Welcome ${data.fullName}`, 'success');
+      }
+    } catch {
+      // Not authenticated yet via OIDC session
+    }
+  };
 
   const showAlert = (message, type = 'success') => {
     setAlert({ message, type });
-    setTimeout(() => setAlert(null), 4000);
+    setTimeout(() => setAlert(null), 5000);
+  };
+
+  // Centralized Error-Safe API Request Handler
+  const handleApiRequest = async (url, options = {}) => {
+    try {
+      console.log(`[Frontend Request] ${options.method || 'GET'} ${url}`);
+      const res = await fetch(url, options);
+      const data = await res.json().catch(() => ({}));
+      
+      if (!res.ok) {
+        const errorMsg = data.message || data.error || `Server returned status ${res.status}`;
+        throw new Error(errorMsg);
+      }
+      return data;
+    } catch (err) {
+      const displayError = err.message || 'Network error or backend unavailable.';
+      console.error(`[Frontend Error] ${options.method || 'GET'} ${url}:`, displayError);
+      showAlert(displayError, 'error');
+      throw err;
+    }
   };
 
   const fetchHealth = async () => {
     try {
-      const res = await fetch('/api/health');
-      if (res.ok) {
-        const data = await res.json();
-        setHealth(data);
-      }
+      const data = await handleApiRequest('/api/health');
+      setHealth(data);
     } catch {
       setHealth({ status: 'ONLINE (Spring Boot + PostgreSQL)', uptime: 'Active', environment: 'GCP Compute Engine VM' });
     }
@@ -53,46 +83,46 @@ export default function App() {
 
   const fetchItems = async () => {
     try {
-      const res = await fetch('/api/items');
-      if (res.ok) {
-        const data = await res.json();
-        setItems(data);
-      }
+      const data = await handleApiRequest('/api/items');
+      setItems(data);
     } catch (err) {
-      console.error('Failed to fetch items:', err);
+      console.error('Failed to load items:', err);
     }
   };
 
   const fetchIdpUsers = async () => {
     try {
-      const res = await fetch('/api/admin/identity-provider/users');
-      if (res.ok) {
-        const data = await res.json();
-        setIdpUsers(data);
-      }
+      const data = await handleApiRequest('/api/admin/identity-provider/users');
+      setIdpUsers(data);
     } catch (err) {
-      console.error('Failed to fetch IdP users:', err);
+      console.error('Failed to load IdP users:', err);
     }
   };
 
-  // Google Single Sign-On OpenID Connect (OIDC / Okta Identity Provider Flow)
-  const handleGoogleSso = async () => {
+  // Unified Single Sign-On Handler (Supports Okta SSO & Google SSO)
+  const handleSsoProcess = async (providerName) => {
     try {
-      const ssoEmail = authEmail || "belgamchand.bashashaik@gmail.com";
-      const res = await fetch('/api/auth/sso/google', {
+      const ssoEmail = authEmail.trim();
+      const ssoName = authFullName.trim() || ssoEmail.split('@')[0];
+      
+      if (!ssoEmail) {
+        showAlert('Please enter an Email Address before proceeding with Single Sign-On.', 'error');
+        return;
+      }
+      console.log(`[Frontend SSO] Initiating ${providerName} dynamically for ${ssoEmail}`);
+
+      const data = await handleApiRequest('/api/auth/sso/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: ssoEmail, name: authFullName || 'Belgamchand Bashashaik' })
+        body: JSON.stringify({ email: ssoEmail, name: ssoName, provider: providerName })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Google SSO failed');
-      
+
       setPendingSsoUser(data);
       setMfaModal(true);
-      fetchIdpUsers(); // refresh IdP database list
-      showAlert(`SSO Identity verified for ${ssoEmail}! Please enter 6-digit TOTP security PIN.`, 'success');
+      fetchIdpUsers();
+      showAlert(`${providerName} Verified for ${ssoEmail}! Enter 6-digit TOTP Security PIN.`, 'success');
     } catch (err) {
-      showAlert(err.message, 'error');
+      // Error handled by handleApiRequest & alert shown automatically
     }
   };
 
@@ -100,21 +130,20 @@ export default function App() {
   const handleVerifyTotpMfa = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/auth/sso/mfa/verify', {
+      console.log('[Frontend SSO 2FA] Verifying 6-digit TOTP PIN:', mfaCode);
+      const data = await handleApiRequest('/api/auth/sso/mfa/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: pendingSsoUser.email, code: mfaCode })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'MFA Verification failed');
 
       setUser(data);
       setMfaModal(false);
       setMfaCode('');
       fetchIdpUsers();
-      showAlert(`Authenticated via Google SSO & 2FA TOTP! Welcome ${data.fullName}`, 'success');
+      showAlert(`Authenticated via ${pendingSsoUser.provider} & 2FA TOTP! Welcome ${data.fullName}`, 'success');
     } catch (err) {
-      showAlert(err.message, 'error');
+      // Error alert shown automatically
     }
   };
 
@@ -123,40 +152,34 @@ export default function App() {
     e.preventDefault();
     try {
       if (authMode === 'register') {
-        const res = await fetch('/api/auth/register', {
+        const data = await handleApiRequest('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: authEmail, password: authPassword, fullName: authFullName })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Registration failed');
         showAlert(`User identity created in PostgreSQL IdP! Log in or use SSO now.`, 'success');
         fetchIdpUsers();
         setAuthMode('login');
       } else if (authMode === 'login') {
-        const res = await fetch('/api/auth/login', {
+        const data = await handleApiRequest('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: authEmail, password: authPassword })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Login failed');
         setUser(data);
         showAlert(`Welcome back, ${data.fullName}!`, 'success');
       } else if (authMode === 'reset') {
-        const res = await fetch('/api/auth/reset-password', {
+        const data = await handleApiRequest('/api/auth/reset-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: authEmail, newPassword })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Password reset failed');
         showAlert('Password reset successfully! Please log in.', 'success');
         fetchIdpUsers();
         setAuthMode('login');
       }
     } catch (err) {
-      showAlert(err.message, 'error');
+      // Error alert shown automatically
     }
   };
 
@@ -165,18 +188,16 @@ export default function App() {
     e.preventDefault();
     if (!itemName.trim()) return;
     try {
-      const res = await fetch('/api/items', {
+      const data = await handleApiRequest('/api/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: itemName, category: itemCategory, status: 'ACTIVE' })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to add item');
       setItems([...items, data]);
       setItemName('');
       showAlert(`Record "${data.name}" saved to PostgreSQL Database!`, 'success');
     } catch (err) {
-      showAlert(err.message, 'error');
+      // Error alert shown automatically
     }
   };
 
@@ -184,31 +205,27 @@ export default function App() {
     e.preventDefault();
     if (!editingItem) return;
     try {
-      const res = await fetch(`/api/items/${editingItem.id}`, {
+      const data = await handleApiRequest(`/api/items/${editingItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editingItem.name, category: editingItem.category, status: editingItem.status })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to update item');
       setItems(items.map(i => i.id === data.id ? data : i));
       setEditingItem(null);
       showAlert(`Record #${data.id} updated!`, 'success');
     } catch (err) {
-      showAlert(err.message, 'error');
+      // Error alert shown automatically
     }
   };
 
   const handleDeleteItem = async (id) => {
     if (!window.confirm('Delete this record permanently from PostgreSQL database?')) return;
     try {
-      const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to delete item');
+      const data = await handleApiRequest(`/api/items/${id}`, { method: 'DELETE' });
       setItems(items.filter(i => i.id !== id));
       showAlert(`Record #${id} deleted from database!`, 'success');
     } catch (err) {
-      showAlert(err.message, 'error');
+      // Error alert shown automatically
     }
   };
 
@@ -217,7 +234,7 @@ export default function App() {
       {/* Toast Alert Banner */}
       {alert && (
         <div className={`toast-banner ${alert.type}`}>
-          {alert.type === 'error' ? '❌' : '✅'} {alert.message}
+          {alert.type === 'error' ? '❌ Exception: ' : '✅ '} {alert.message}
         </div>
       )}
 
@@ -247,7 +264,7 @@ export default function App() {
         <header className="metronic-header">
           <div>
             <h2 style={{ fontSize: '1.4rem' }}>Enterprise Monolithic Dashboard</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>OIDC Single Sign-On (Google/Okta) + BCrypt + 2FA TOTP + PostgreSQL</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>OIDC Single Sign-On (Okta / Google) + BCrypt + 2FA TOTP + PostgreSQL</p>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -269,7 +286,7 @@ export default function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div>
                 <h3>🛡️ Okta / OpenID Connect Identity Provider (PostgreSQL DB)</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>All initial registration and Google SSO provisioned user identities stored in PostgreSQL</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>All initial registration and SSO provisioned user identities stored in PostgreSQL</p>
               </div>
               <button className="btn-metronic" onClick={fetchIdpUsers}>🔄 Refresh IdP DB</button>
             </div>
@@ -306,16 +323,16 @@ export default function App() {
               <div className="metronic-card">
                 <h3 style={{ marginBottom: '0.5rem' }}>🔐 Identity Registration & Single Sign-On</h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                  <strong>Flow Step 1:</strong> Register a new user in the Identity Provider DB, then sign in with Google (SSO) & 2FA TOTP!
+                  <strong>Flow Step 1:</strong> Register a new user in the Identity Provider DB, then sign in with Okta/Google SSO & 2FA TOTP!
                 </p>
 
                 {/* Okta & Google Single Sign-On (SSO) Triggers */}
                 <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                  <a href="/oauth2/authorization/okta" className="btn-metronic" style={{ textDecoration: 'none', background: '#00297A' }}>
+                  <button className="btn-metronic" style={{ background: '#00297A' }} onClick={() => handleSsoProcess('Okta OIDC Single Sign-On')}>
                     🛡️ Sign in with Okta SSO (OpenID Connect)
-                  </a>
+                  </button>
 
-                  <button className="btn-sso-google" onClick={handleGoogleSso}>
+                  <button className="btn-sso-google" onClick={() => handleSsoProcess('Google OIDC Single Sign-On')}>
                     <svg width="18" height="18" viewBox="0 0 18 18">
                       <path fill="#4285F4" d="M17.64 9.2c0-.74-.06-1.28-.19-1.84H9v3.34h4.96c-.1.83-.64 2.08-1.84 2.92l2.84 2.2c1.7-1.57 2.68-3.88 2.68-6.62z"/>
                       <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.84-2.2c-.76.53-1.78.9-3.12.9-2.38 0-4.41-1.57-5.13-3.72L.97 13.06C2.45 16 5.48 18 9 18z"/>
@@ -392,7 +409,7 @@ export default function App() {
                 <div className="metronic-card modal-content">
                   <h3 style={{ marginBottom: '0.5rem' }}>🔑 2FA Security Challenge</h3>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-                    Single Sign-On identity matched for <strong>{pendingSsoUser?.email}</strong>. Enter your 6-digit TOTP authenticator PIN code to proceed.
+                    Single Sign-On identity matched for <strong>{pendingSsoUser?.email}</strong> via {pendingSsoUser?.provider}. Enter your 6-digit TOTP authenticator PIN code to proceed.
                   </p>
                   <form onSubmit={handleVerifyTotpMfa} style={{ display: 'grid', gap: '1rem' }}>
                     <input
