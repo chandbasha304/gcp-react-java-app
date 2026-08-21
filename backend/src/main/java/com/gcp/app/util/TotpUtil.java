@@ -33,6 +33,8 @@ public class TotpUtil {
             return false;
         }
 
+        //enter data
+
         String secret = (userSecret != null && !userSecret.isBlank()) ? userSecret : DEFAULT_SECRET;
         long currentStep = System.currentTimeMillis() / 1000L / 30L;
 
